@@ -1,0 +1,92 @@
+import { createServer } from 'node:http'
+import { readFile } from 'node:fs/promises'
+import { join, normalize, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const DIST = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
+const PORT = Number(process.env.PORT) || 4098
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json; charset=utf-8',
+}
+
+const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+function send(res, status, body, headers = {}) {
+  res.writeHead(status, headers)
+  res.end(body)
+}
+
+function json(res, status, obj) {
+  send(res, status, JSON.stringify(obj), {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  })
+}
+
+function validId(id) {
+  return typeof id === 'string' && /^[A-Za-z0-9]{10,30}$/.test(id) ? id : null
+}
+
+async function scrapePlaylist(id) {
+  const resp = await fetch(`https://open.spotify.com/embed/playlist/${id}`, {
+    headers: { 'User-Agent': UA, Accept: 'text/html' },
+  })
+  if (!resp.ok) return { status: 502, error: `Spotify returned ${resp.status}.` }
+  const html = await resp.text()
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  if (!match) return { status: 502, error: 'Could not read the playlist data.' }
+  let data
+  try { data = JSON.parse(match[1]) } catch { return { status: 502, error: 'Could not parse the playlist data.' } }
+  const entity = data?.props?.pageProps?.state?.data?.entity
+  if (!entity || entity.type !== 'playlist') return { status: 404, error: 'Playlist not found, or it is private. Only public playlists can be checked.' }
+  const tracks = (entity.trackList || []).map((t) => ({ title: t.title || '', subtitle: t.subtitle || '' }))
+  const image = entity.coverArt?.sources?.[0]?.url || null
+  return { status: 200, name: entity.name, image, tracks }
+}
+
+async function handleApi(req, res, url) {
+  if (url.pathname !== '/api/playlist') return json(res, 404, { error: 'Not found.' })
+  const id = validId(url.searchParams.get('id'))
+  if (!id) return json(res, 400, { error: 'Invalid playlist ID.' })
+  try {
+    const result = await scrapePlaylist(id)
+    if (result.error) return json(res, result.status, { error: result.error })
+    return json(res, 200, { name: result.name, image: result.image, tracks: result.tracks })
+  } catch {
+    return json(res, 502, { error: 'Failed to load the playlist.' })
+  }
+}
+
+async function serveStatic(res, pathname) {
+  let p = pathname === '/' ? '/index.html' : normalize(pathname).replace(/^(\.\.[/\\])+/, '')
+  const abs = join(DIST, p)
+  try {
+    const content = await readFile(abs)
+    const type = MIME[extname(abs).toLowerCase()] || 'application/octet-stream'
+    return send(res, 200, content, { 'Content-Type': type })
+  } catch {
+    if (extname(p)) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' })
+    try {
+      const content = await readFile(join(DIST, 'index.html'))
+      return send(res, 200, content, { 'Content-Type': MIME['.html'] })
+    } catch {
+      return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' })
+    }
+  }
+}
+
+createServer((req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+  if (url.pathname.startsWith('/api/')) return handleApi(req, res, url)
+  return serveStatic(res, url.pathname)
+}).listen(PORT, () => console.log(`listening on :${PORT}`))

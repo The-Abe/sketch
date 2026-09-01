@@ -1,12 +1,29 @@
-# Playlist Index
+# Black Metal Sketchbook — Playlist Check
 
-Paste a public Spotify playlist URL to compare its artists with the published spreadsheet index.
+Paste a public Spotify playlist URL to check its artists against the [Black Metal Sketchbook](https://blackmetalsketchbook.com/) index — a living record of NSBM, fascist and anti-fascist associations in black metal.
 
-## Setup
+No Spotify API app, OAuth, or client credentials are required. The server fetches Spotify's public embed page and reads the track/artist list from it.
 
-1. Create a Spotify app at <https://developer.spotify.com/dashboard>.
-2. Add the URL where the app runs as a Redirect URI, for example `http://localhost:5173/`.
-3. Copy `.env.example` to `.env` and set `VITE_SPOTIFY_CLIENT_ID` to the app's client ID.
-4. Run `npm install`, then `npm run dev`.
+## Run locally
 
-The app uses Spotify's browser-safe PKCE authorization flow. It does not store playlist URLs or sheet data.
+```sh
+npm install
+npm run dev      # Vite dev server (the /api/playlist proxy runs in server.js)
+```
+
+To run the production server (serves the built app + the `/api/playlist` proxy):
+
+```sh
+npm run build
+npm start        # listens on :4098 (PORT env to override)
+```
+
+## Deploy (Docker + Tailscale)
+
+```sh
+TS_AUTHKEY=tskey-... docker compose up --build
+```
+
+## Source
+
+Artist index: <https://blackmetalsketchbook.com/> · submissions: bmsketchbook@gmail.com

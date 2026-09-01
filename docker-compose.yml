@@ -17,8 +17,6 @@ services:
   app:
     build:
       context: .
-      args:
-        VITE_SPOTIFY_CLIENT_ID: ${VITE_SPOTIFY_CLIENT_ID}
     network_mode: "service:tailscale"
     depends_on:
       - tailscale
