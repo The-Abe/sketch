@@ -6,6 +6,8 @@ import './styles.css'
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pub?output=csv'
 const SHEET_VIEW_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pubhtml'
 
+const SCOPE = 'playlist-read-private playlist-read-collaborative'
+
 const normalize = (value) => value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
 
 function parseCsv(text) {
@@ -35,18 +37,18 @@ async function getSpotifyToken() {
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID
   if (!clientId) throw new Error('Spotify is not configured yet. Add VITE_SPOTIFY_CLIENT_ID to your environment.')
   const cached = sessionStorage.getItem('spotify-token')
-  if (cached) { const parsed = JSON.parse(cached); if (parsed.expires > Date.now()) return parsed.token }
+  if (cached) { const parsed = JSON.parse(cached); if (parsed.scope === SCOPE && parsed.expires > Date.now()) return parsed.token }
   const verifier = crypto.randomUUID() + crypto.randomUUID()
   const challengeBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
   const challenge = btoa(String.fromCharCode(...new Uint8Array(challengeBuffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
   const redirect = window.location.origin + window.location.pathname
   const authUrl = new URL('https://accounts.spotify.com/authorize')
-  authUrl.search = new URLSearchParams({ client_id: clientId, response_type: 'code', redirect_uri: redirect, code_challenge_method: 'S256', code_challenge: challenge, scope: '' })
+  authUrl.search = new URLSearchParams({ client_id: clientId, response_type: 'code', redirect_uri: redirect, code_challenge_method: 'S256', code_challenge: challenge, scope: SCOPE })
   const params = new URLSearchParams(window.location.search)
   if (!params.get('code')) { sessionStorage.setItem('spotify-verifier', verifier); window.location.href = authUrl.toString(); return null }
   const response = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: clientId, grant_type: 'authorization_code', code: params.get('code'), redirect_uri: redirect, code_verifier: sessionStorage.getItem('spotify-verifier') }) })
   if (!response.ok) throw new Error('Spotify authorization failed. Check your app redirect URI.')
-  const data = await response.json(); sessionStorage.setItem('spotify-token', JSON.stringify({ token: data.access_token, expires: Date.now() + (data.expires_in - 60) * 1000 })); window.history.replaceState({}, '', window.location.pathname)
+  const data = await response.json(); sessionStorage.setItem('spotify-token', JSON.stringify({ token: data.access_token, scope: SCOPE, expires: Date.now() + (data.expires_in - 60) * 1000 })); window.history.replaceState({}, '', window.location.pathname)
   return data.access_token
 }
 
