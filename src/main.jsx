@@ -31,6 +31,15 @@ function splitArtists(subtitle) {
   return subtitle.split(/,\s*|\s*&\s*/).map((s) => s.trim()).filter(Boolean)
 }
 
+function linkify(text) {
+  return text.split(/(https?:\/\/[^\s<>"']+)/g).map((part, i) => {
+    if (!/^https?:\/\//.test(part)) return part
+    const url = part.replace(/[.,;:!?]+$/, '')
+    const trailing = part.slice(url.length)
+    return <span key={i}><a href={url} target="_blank" rel="noreferrer noopener">{url}</a>{trailing}</span>
+  })
+}
+
 async function loadIndex() {
   const response = await fetch('/api/index')
   if (!response.ok) throw new Error('The artist index could not be loaded.')
@@ -84,7 +93,7 @@ function App() {
         <div className="result-grid">
           <div className="result-column">
             <div className="column-label"><span className="status-mark flagged"><AlertTriangle size={13} /></span> ON THE INDEX <b>{matched.length}</b></div>
-            {matched.map((artist) => <article className="artist-card flagged" key={artist.name}><div className="card-top"><div><div className="artist-name">{artist.name}</div><div className="tag-row">{artist.match.rating && <span className={`tag rating rating-${artist.match.rating}`}><span className="swatch" />{RATINGS[artist.match.rating].label}</span>}{artist.match.nat && <span className="tag">{artist.match.nat}</span>}</div></div><button className="expand" onClick={() => setExpanded(expanded === artist.name ? null : artist.name)} aria-label={`Show notes for ${artist.name}`}><ChevronDown size={18} className={expanded === artist.name ? 'rotate' : ''} /></button></div>{expanded === artist.name && artist.match.notes && <div className="notes">{artist.match.notes}</div>}</article>)}
+            {matched.map((artist) => <article className="artist-card flagged" key={artist.name}><div className="card-top"><div><div className="artist-name">{artist.name}</div><div className="tag-row">{artist.match.rating && <span className={`tag rating rating-${artist.match.rating}`}><span className="swatch" />{RATINGS[artist.match.rating].label}</span>}{artist.match.nat && <span className="tag">{artist.match.nat}</span>}</div></div><button className="expand" onClick={() => setExpanded(expanded === artist.name ? null : artist.name)} aria-label={`Show notes for ${artist.name}`}><ChevronDown size={18} className={expanded === artist.name ? 'rotate' : ''} /></button></div>{expanded === artist.name && artist.match.notes && <div className="notes">{linkify(artist.match.notes)}</div>}</article>)}
             {matched.length === 0 && <p className="column-empty">No matches found.</p>}
           </div>
           <div className="result-column">
