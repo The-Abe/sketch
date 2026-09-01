@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 const DIST = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const PORT = Number(process.env.PORT) || 4098
 
+const SHEET_URL = 'https://docs.google.com/spreadsheets/u/0/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pubhtml/sheet?headers=false&gid=0'
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -21,15 +23,78 @@ const MIME = {
 
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+const RATING_BY_COLOR = {
+  '#34a853': 'green',
+  '#f1e00a': 'yellow',
+  '#ff6d01': 'orange',
+  '#ff0000': 'red',
+  '#000000': 'black',
+}
+
 function send(res, status, body, headers = {}) {
   res.writeHead(status, headers)
   res.end(body)
 }
 
-function json(res, status, obj) {
-  send(res, status, JSON.stringify(obj), {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
+function json(res, status, obj, extra = {}) {
+  send(res, status, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra })
+}
+
+function decodeEntities(s) {
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+}
+
+function stripTags(s) {
+  return decodeEntities(s.replace(/<[^>]*>/g, ''))
+}
+
+function parseSheet(html) {
+  const colors = {}
+  for (const m of html.matchAll(/\.waffle \.s(\d+)\{([^}]*)\}/g)) {
+    const bg = m[2].match(/background-color:\s*(#[0-9a-fA-F]+)/)
+    colors[`s${m[1]}`] = bg ? bg[1] : '#ffffff'
+  }
+  const rows = []
+  for (const m of html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) {
+    rows.push([...m[1].matchAll(/<td[^>]*class="(s\d+)"[^>]*>([\s\S]*?)<\/td>/g)].map((c) => ({ cls: c[1], text: stripTags(c[2]) })))
+  }
+  const headerIdx = rows.findIndex((r) => r[0] && r[0].text.trim().toUpperCase() === 'BAND')
+  if (headerIdx < 0) return []
+  const out = []
+  for (const row of rows.slice(headerIdx + 1)) {
+    if (row.length < 3) continue
+    const band = row[0].text.trim()
+    if (!band) continue
+    const nat = row[1].text.trim()
+    const bg = colors[row[2].cls] || '#ffffff'
+    const rating = RATING_BY_COLOR[bg] || null
+    const notes = row.length > 3 ? row[3].text.trim() : ''
+    out.push({ band, nat, rating, notes })
+  }
+  return out
+}
+
+const cache = new Map()
+function cached(key, ttlMs, load) {
+  const hit = cache.get(key)
+  if (hit && Date.now() - hit.at < ttlMs) return hit.value
+  const value = load()
+  cache.set(key, { at: Date.now(), value })
+  return value
+}
+
+async function loadIndex() {
+  return cached('index', 10 * 60 * 1000, async () => {
+    const resp = await fetch(SHEET_URL, { headers: { 'User-Agent': UA } })
+    if (!resp.ok) throw new Error('index fetch failed')
+    return parseSheet(await resp.text())
   })
 }
 
@@ -38,9 +103,7 @@ function validId(id) {
 }
 
 async function scrapePlaylist(id) {
-  const resp = await fetch(`https://open.spotify.com/embed/playlist/${id}`, {
-    headers: { 'User-Agent': UA, Accept: 'text/html' },
-  })
+  const resp = await fetch(`https://open.spotify.com/embed/playlist/${id}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } })
   if (!resp.ok) return { status: 502, error: `Spotify returned ${resp.status}.` }
   const html = await resp.text()
   const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
@@ -55,25 +118,32 @@ async function scrapePlaylist(id) {
 }
 
 async function handleApi(req, res, url) {
-  if (url.pathname !== '/api/playlist') return json(res, 404, { error: 'Not found.' })
-  const id = validId(url.searchParams.get('id'))
-  if (!id) return json(res, 400, { error: 'Invalid playlist ID.' })
-  try {
-    const result = await scrapePlaylist(id)
-    if (result.error) return json(res, result.status, { error: result.error })
-    return json(res, 200, { name: result.name, image: result.image, tracks: result.tracks })
-  } catch {
-    return json(res, 502, { error: 'Failed to load the playlist.' })
+  if (url.pathname === '/api/index') {
+    try {
+      return json(res, 200, await loadIndex())
+    } catch {
+      return json(res, 502, { error: 'The artist index could not be loaded.' })
+    }
   }
+  if (url.pathname === '/api/playlist') {
+    const id = validId(url.searchParams.get('id'))
+    if (!id) return json(res, 400, { error: 'Invalid playlist ID.' })
+    try {
+      const result = await scrapePlaylist(id)
+      if (result.error) return json(res, result.status, { error: result.error })
+      return json(res, 200, { name: result.name, image: result.image, tracks: result.tracks })
+    } catch {
+      return json(res, 502, { error: 'Failed to load the playlist.' })
+    }
+  }
+  return json(res, 404, { error: 'Not found.' })
 }
 
 async function serveStatic(res, pathname) {
-  let p = pathname === '/' ? '/index.html' : normalize(pathname).replace(/^(\.\.[/\\])+/, '')
-  const abs = join(DIST, p)
+  const p = pathname === '/' ? '/index.html' : normalize(pathname).replace(/^(\.\.[/\\])+/, '')
   try {
-    const content = await readFile(abs)
-    const type = MIME[extname(abs).toLowerCase()] || 'application/octet-stream'
-    return send(res, 200, content, { 'Content-Type': type })
+    const content = await readFile(join(DIST, p))
+    return send(res, 200, content, { 'Content-Type': MIME[extname(p).toLowerCase()] || 'application/octet-stream' })
   } catch {
     if (extname(p)) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' })
     try {

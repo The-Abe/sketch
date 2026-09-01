@@ -3,26 +3,19 @@ import { createRoot } from 'react-dom/client'
 import { AlertTriangle, ArrowRight, ChevronDown, ExternalLink, LoaderCircle, Minus, Search } from 'lucide-react'
 import './styles.css'
 
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pub?output=csv'
 const SHEET_VIEW_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pubhtml'
 const SITE_URL = 'https://blackmetalsketchbook.com/'
 
+const RATINGS = {
+  black: { label: 'Fascist / NSBM', order: 0 },
+  red: { label: 'Right-wing associations', order: 1 },
+  orange: { label: 'Controversy — use discretion', order: 2 },
+  yellow: { label: 'Left-wing associations', order: 3 },
+  green: { label: 'Anti-fascist', order: 4 },
+}
+
 const CYRILLIC = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' }
 const normalize = (value) => [...value.toLowerCase()].map((ch) => CYRILLIC[ch] ?? ch).join('').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
-
-function parseCsv(text) {
-  const rows = []; let row = []; let cell = ''; let quoted = false
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i]; const next = text[i + 1]
-    if (char === '"' && quoted && next === '"') { cell += '"'; i += 1 }
-    else if (char === '"') quoted = !quoted
-    else if (char === ',' && !quoted) { row.push(cell); cell = '' }
-    else if ((char === '\n' || char === '\r') && !quoted) { if (char === '\r' && next === '\n') i += 1; row.push(cell); rows.push(row); row = []; cell = '' }
-    else cell += char
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row) }
-  return rows
-}
 
 function playlistIdFromUrl(value) {
   try {
@@ -38,17 +31,19 @@ function splitArtists(subtitle) {
   return subtitle.split(/,\s*|\s*&\s*/).map((s) => s.trim()).filter(Boolean)
 }
 
+async function loadIndex() {
+  const response = await fetch('/api/index')
+  if (!response.ok) throw new Error('The artist index could not be loaded.')
+  const list = await response.json()
+  return new Map(list.map((entry) => [normalize(entry.band), entry]))
+}
+
 async function loadResults(url) {
   const id = playlistIdFromUrl(url)
   if (!id) throw new Error('Paste a valid Spotify playlist URL.')
-  const [sheetResponse, playlistResponse] = await Promise.all([fetch(SHEET_URL), fetch(`/api/playlist?id=${encodeURIComponent(id)}`)])
-  if (!sheetResponse.ok) throw new Error('The artist index could not be loaded.')
+  const [records, playlistResponse] = await Promise.all([loadIndex(), fetch(`/api/playlist?id=${encodeURIComponent(id)}`)])
   if (!playlistResponse.ok) { let message = 'That playlist could not be loaded.'; try { message = (await playlistResponse.json()).error || message } catch { /* ignore */ } throw new Error(message) }
-  const [sheetText, playlist] = await Promise.all([sheetResponse.text(), playlistResponse.json()])
-  const rows = parseCsv(sheetText)
-  const headerIndex = rows.findIndex((row) => row.some((value) => value.trim().toUpperCase() === 'BAND'))
-  const headers = rows[headerIndex].map((value) => value.trim().toUpperCase()); const index = (name) => headers.indexOf(name)
-  const records = new Map(rows.slice(headerIndex + 1).filter((row) => row[index('BAND')]?.trim()).map((row) => [normalize(row[index('BAND')]), { band: row[index('BAND')].trim(), nat: row[index('NAT')]?.trim(), notes: row[index('NOTES')]?.trim() }]))
+  const playlist = await playlistResponse.json()
   const artists = new Map()
   for (const track of playlist.tracks || []) {
     for (const name of splitArtists(track.subtitle)) {
@@ -60,10 +55,13 @@ async function loadResults(url) {
   return { playlistName: playlist.name, playlistImage: playlist.image, artists: [...artists.values()] }
 }
 
+const ratingOrder = (rating) => (rating && RATINGS[rating] ? RATINGS[rating].order : 5)
+
 function App() {
   const [url, setUrl] = useState(''); const [data, setData] = useState(null); const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const [expanded, setExpanded] = useState(null)
   const submit = async (event) => { event.preventDefault(); setError(''); setData(null); setLoading(true); try { setData(await loadResults(url)) } catch (err) { setError(err.message) } finally { setLoading(false) } }
-  const matched = data?.artists.filter((artist) => artist.match) || []; const unmatched = data?.artists.filter((artist) => !artist.match) || []
+  const matched = (data?.artists.filter((artist) => artist.match) || []).sort((a, b) => ratingOrder(a.match.rating) - ratingOrder(b.match.rating) || a.name.localeCompare(b.name))
+  const unmatched = data?.artists.filter((artist) => !artist.match) || []
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href={SITE_URL} target="_blank" rel="noreferrer"><span className="brand-text">BLACK METAL <b>SKETCHBOOK</b></span><span className="brand-sub">playlist check</span></a><a className="index-link" href={SHEET_VIEW_URL} target="_blank" rel="noreferrer">View the index <ExternalLink size={13} /></a></header>
     <main>
@@ -86,7 +84,7 @@ function App() {
         <div className="result-grid">
           <div className="result-column">
             <div className="column-label"><span className="status-mark flagged"><AlertTriangle size={13} /></span> ON THE INDEX <b>{matched.length}</b></div>
-            {matched.map((artist) => <article className="artist-card flagged" key={artist.name}><div className="card-top"><div><div className="artist-name">{artist.name}</div><div className="tag-row">{artist.match.nat && <span className="tag">{artist.match.nat}</span>}</div></div><button className="expand" onClick={() => setExpanded(expanded === artist.name ? null : artist.name)} aria-label={`Show notes for ${artist.name}`}><ChevronDown size={18} className={expanded === artist.name ? 'rotate' : ''} /></button></div>{expanded === artist.name && artist.match.notes && <div className="notes">{artist.match.notes}</div>}</article>)}
+            {matched.map((artist) => <article className="artist-card flagged" key={artist.name}><div className="card-top"><div><div className="artist-name">{artist.name}</div><div className="tag-row">{artist.match.rating && <span className={`tag rating rating-${artist.match.rating}`}><span className="swatch" />{RATINGS[artist.match.rating].label}</span>}{artist.match.nat && <span className="tag">{artist.match.nat}</span>}</div></div><button className="expand" onClick={() => setExpanded(expanded === artist.name ? null : artist.name)} aria-label={`Show notes for ${artist.name}`}><ChevronDown size={18} className={expanded === artist.name ? 'rotate' : ''} /></button></div>{expanded === artist.name && artist.match.notes && <div className="notes">{artist.match.notes}</div>}</article>)}
             {matched.length === 0 && <p className="column-empty">No matches found.</p>}
           </div>
           <div className="result-column">
