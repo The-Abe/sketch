@@ -57,7 +57,7 @@ async function loadResults(url) {
   const token = await getSpotifyToken(); if (!token) return null
   const [sheetResponse, playlistResponse] = await Promise.all([fetch(SHEET_URL), fetch(`https://api.spotify.com/v1/playlists/${id}/tracks?limit=50`, { headers: { Authorization: `Bearer ${token}` } })])
   if (!sheetResponse.ok) throw new Error('The public spreadsheet could not be loaded.')
-  if (!playlistResponse.ok) throw new Error('Spotify could not load that playlist. Make sure it is public.')
+  if (!playlistResponse.ok) { const body = await playlistResponse.json().catch(() => null); throw new Error(`Spotify could not load that playlist (${playlistResponse.status}${body?.error?.message ? `: ${body.error.message}` : ''}).`) }
   const [sheetText, playlist] = await Promise.all([sheetResponse.text(), playlistResponse.json()])
   let next = playlist.next; const tracks = [...playlist.items]
   while (next) { const response = await fetch(next, { headers: { Authorization: `Bearer ${token}` } }); const page = await response.json(); tracks.push(...page.items); next = page.next }
