@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AlertCircle, ArrowUpRight, Check, ChevronDown, Disc3, ExternalLink, LoaderCircle, Search, Settings2, Sparkles } from 'lucide-react'
 import './styles.css'
@@ -53,6 +53,7 @@ async function getSpotifyToken() {
 async function loadResults(url) {
   const id = playlistIdFromUrl(url)
   if (!id) throw new Error('Paste a valid Spotify playlist URL to continue.')
+  sessionStorage.setItem('spotify-playlist-url', url)
   const token = await getSpotifyToken(); if (!token) return null
   const [sheetResponse, playlistResponse] = await Promise.all([fetch(SHEET_URL), fetch(`https://api.spotify.com/v1/playlists/${id}/tracks?limit=50`, { headers: { Authorization: `Bearer ${token}` } })])
   if (!sheetResponse.ok) throw new Error('The public spreadsheet could not be loaded.')
@@ -70,7 +71,9 @@ async function loadResults(url) {
 
 function App() {
   const [url, setUrl] = useState(''); const [data, setData] = useState(null); const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const [expanded, setExpanded] = useState(null)
-  const submit = async (event) => { event.preventDefault(); setError(''); setData(null); setLoading(true); try { setData(await loadResults(url)) } catch (err) { setError(err.message) } finally { setLoading(false) } }
+  const run = async (targetUrl) => { setError(''); setData(null); setLoading(true); try { setData(await loadResults(targetUrl)) } catch (err) { setError(err.message) } finally { setLoading(false) } }
+  const submit = async (event) => { event.preventDefault(); run(url) }
+  useEffect(() => { const code = new URLSearchParams(window.location.search).get('code'); if (code) { const savedUrl = sessionStorage.getItem('spotify-playlist-url'); if (savedUrl) { setUrl(savedUrl); run(savedUrl) } } }, [])
   const matched = data?.artists.filter((artist) => artist.match) || []; const unmatched = data?.artists.filter((artist) => !artist.match) || []
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href="/"><span className="brand-mark"><Disc3 size={20} /></span><span>PLAYLIST <b>INDEX</b></span></a><a className="sheet-link" href={SHEET_VIEW_URL} target="_blank" rel="noreferrer">View source sheet <ExternalLink size={14} /></a></header>
