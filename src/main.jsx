@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AlertTriangle, ArrowRight, ChevronDown, ExternalLink, LoaderCircle, Minus, Search } from 'lucide-react'
 import './styles.css'
@@ -68,7 +68,29 @@ const ratingOrder = (rating) => (rating && RATINGS[rating] ? RATINGS[rating].ord
 
 function App() {
   const [url, setUrl] = useState(''); const [data, setData] = useState(null); const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const [expanded, setExpanded] = useState(null)
-  const submit = async (event) => { event.preventDefault(); setError(''); setData(null); setLoading(true); try { setData(await loadResults(url)) } catch (err) { setError(err.message) } finally { setLoading(false) } }
+  const runRef = useRef(0)
+  const enrich = async (result, run) => {
+    const targets = result.artists.filter((artist) => !artist.match)
+    if (!targets.length) return
+    let cursor = 0
+    const patch = (name, changes) => { if (runRef.current !== run) return; setData((prev) => prev ? { ...prev, artists: prev.artists.map((artist) => artist.name === name ? { ...artist, ...changes } : artist) } : prev) }
+    const worker = async () => {
+      while (true) {
+        const artist = targets[cursor++]
+        if (!artist || runRef.current !== run) return
+        patch(artist.name, { checking: true })
+        let info = { blackMetal: null, threads: [] }
+        try {
+          const response = await fetch(`/api/band?name=${encodeURIComponent(artist.name)}`)
+          if (response.ok) info = await response.json()
+        } catch { /* ignore */ }
+        if (runRef.current !== run) return
+        patch(artist.name, { checking: false, genre: info })
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker()])
+  }
+  const submit = async (event) => { event.preventDefault(); setError(''); setData(null); setLoading(true); const run = ++runRef.current; try { const result = await loadResults(url); if (runRef.current !== run) return; setData(result); setLoading(false); enrich(result, run) } catch (err) { if (runRef.current !== run) return; setError(err.message); setLoading(false) } }
   const matched = (data?.artists.filter((artist) => artist.match) || []).sort((a, b) => ratingOrder(a.match.rating) - ratingOrder(b.match.rating) || a.name.localeCompare(b.name))
   const unmatched = data?.artists.filter((artist) => !artist.match) || []
   return <div className="app-shell">
@@ -98,7 +120,7 @@ function App() {
           </div>
           <div className="result-column">
             <div className="column-label"><span className="status-mark clear"><Minus size={13} /></span> NOT LISTED <b>{unmatched.length}</b></div>
-            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div></article>)}
+            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>}</div>}</article>)}
             {unmatched.length === 0 && <p className="column-empty">Every artist is on the index.</p>}
           </div>
         </div>

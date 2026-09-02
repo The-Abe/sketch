@@ -1,12 +1,18 @@
 import { createServer } from 'node:http'
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 
 const DIST = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const PORT = Number(process.env.PORT) || 4098
 
 const SHEET_URL = 'https://docs.google.com/spreadsheets/u/0/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pubhtml/sheet?headers=false&gid=0'
+const BAND_GENRES_FILE = join(fileURLToPath(new URL('.', import.meta.url)), 'band-genres.json')
+
+const CYRILLIC = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' }
+const normalizeBand = (value) => [...value.toLowerCase()].map((ch) => CYRILLIC[ch] ?? ch).join('').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -53,6 +59,17 @@ function decodeEntities(s) {
 
 function stripTags(s) {
   return decodeEntities(s.replace(/<[^>]*>/g, ''))
+}
+
+const execFileP = promisify(execFile)
+
+async function curlText(url, accept) {
+  try {
+    const { stdout } = await execFileP('curl', ['-sS', '--fail', '-L', '--max-time', '25', '-A', UA, '-H', `Accept: ${accept}`, url], { maxBuffer: 20 * 1024 * 1024 })
+    return stdout
+  } catch {
+    return null
+  }
 }
 
 function parseSheet(html) {
@@ -102,6 +119,83 @@ function validId(id) {
   return typeof id === 'string' && /^[A-Za-z0-9]{10,30}$/.test(id) ? id : null
 }
 
+let bandGenres = null
+let bandGenresWrite = Promise.resolve()
+async function loadBandGenres() {
+  if (bandGenres) return bandGenres
+  try {
+    const obj = JSON.parse(await readFile(BAND_GENRES_FILE, 'utf8'))
+    bandGenres = new Map(Object.entries(obj).map(([name, blackMetal]) => [normalizeBand(name), { name, blackMetal }]))
+  } catch {
+    bandGenres = new Map()
+  }
+  return bandGenres
+}
+
+function persistBandGenres() {
+  const obj = Object.fromEntries([...bandGenres.values()].map((e) => [e.name, e.blackMetal]))
+  bandGenresWrite = bandGenresWrite.then(() => writeFile(BAND_GENRES_FILE, JSON.stringify(obj, null, 2) + '\n')).catch(() => {})
+}
+
+async function fetchMetalArchivesGenre(name) {
+  const slug = name.trim().replace(/\s+/g, '_')
+  const html = await curlText(`https://www.metal-archives.com/bands/${encodeURIComponent(slug)}`, 'text/html')
+  if (!html) return null
+  const match = html.match(/<dt>Genre:<\/dt>\s*<dd>([\s\S]*?)<\/dd>/)
+  if (!match) return null
+  const genre = decodeEntities(stripTags(match[1])).trim()
+  return genre || null
+}
+
+const isBlackMetal = (genre) => /black/i.test(genre)
+
+async function fetchRedditFeed(subreddit, query) {
+  const url = `https://www.reddit.com/r/${subreddit}/search.rss?q=${encodeURIComponent(query)}&restrict_sr=1`
+  const xml = await curlText(url, 'application/atom+xml,application/xml,text/xml')
+  if (!xml) return null
+  const out = []
+  for (const entry of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+    const body = entry[1]
+    const link = body.match(/<link[^>]*href="([^"]+)"/)
+    const title = body.match(/<title>([\s\S]*?)<\/title>/)
+    const clean = title ? decodeEntities(stripTags(title[1])).replace(/\s*:\s*r\/\w+\s*$/, '').trim() : ''
+    if (link) out.push({ subreddit, title: clean, url: link[1] })
+  }
+  return out
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function searchRedditThreads(name) {
+  const threads = []
+  for (const subreddit of ['isitsketch', 'rabm']) {
+    let got = null
+    for (let attempt = 0; attempt < 3 && got === null; attempt++) {
+      got = await fetchRedditFeed(subreddit, name)
+      if (got === null) await sleep(800 * (attempt + 1))
+    }
+    threads.push(...(got || []))
+  }
+  return threads
+}
+
+async function lookupBand(name) {
+  const genres = await loadBandGenres()
+  const key = normalizeBand(name)
+  const cached = genres.get(key)
+  if (cached) {
+    const threads = cached.blackMetal ? await searchRedditThreads(name) : []
+    return { name, blackMetal: cached.blackMetal, threads }
+  }
+  const genre = await fetchMetalArchivesGenre(name)
+  if (genre == null) return { name, blackMetal: null, threads: [] }
+  const blackMetal = isBlackMetal(genre)
+  genres.set(key, { name, blackMetal })
+  persistBandGenres()
+  const threads = blackMetal ? await searchRedditThreads(name) : []
+  return { name, blackMetal, genre, threads }
+}
+
 async function scrapePlaylist(id) {
   const resp = await fetch(`https://open.spotify.com/embed/playlist/${id}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } })
   if (!resp.ok) return { status: 502, error: `Spotify returned ${resp.status}.` }
@@ -134,6 +228,15 @@ async function handleApi(req, res, url) {
       return json(res, 200, { name: result.name, image: result.image, tracks: result.tracks })
     } catch {
       return json(res, 502, { error: 'Failed to load the playlist.' })
+    }
+  }
+  if (url.pathname === '/api/band') {
+    const name = (url.searchParams.get('name') || '').trim()
+    if (!name) return json(res, 400, { error: 'Missing band name.' })
+    try {
+      return json(res, 200, await lookupBand(name))
+    } catch {
+      return json(res, 502, { error: 'Could not look up the band.' })
     }
   }
   return json(res, 404, { error: 'Not found.' })

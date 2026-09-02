@@ -21,6 +21,8 @@ services:
     depends_on:
       - tailscale
     restart: unless-stopped
+    volumes:
+      - ./band-genres.json:/app/band-genres.json
 
 volumes:
   tailscale-data:
