@@ -162,7 +162,7 @@ const isBlackMetal = (genre) => /black/i.test(genre)
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const REDDIT_INTERVAL = 2000
+const REDDIT_INTERVAL = 5000
 let lastRedditAt = 0
 let redditChain = Promise.resolve()
 function scheduleReddit(task) {
@@ -200,9 +200,9 @@ async function searchRedditThreads(name) {
     let got = null
     for (let attempt = 0; attempt < 3 && got === null; attempt++) {
       got = await fetchRedditFeed(subreddit, name)
-      if (got === null && attempt < 2) await sleep(4000 * (attempt + 1))
+      if (got === null && attempt < 2) await sleep(10000 * (attempt + 1))
     }
-    if (got === null) failed = true
+    if (got === null) { failed = true; console.warn(`[reddit] r/${subreddit} search failed for "${name}" (rate-limited or unreachable)`) }
     else threads.push(...got)
   }
   return { threads, failed }
