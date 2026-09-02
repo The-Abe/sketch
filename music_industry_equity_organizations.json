@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Music Industry Equity & Justice Organizations",
+  "description": "A curated directory of organizations combating discrimination, promoting equity, and supporting marginalized groups in the music industry.",
+  "version": "1.0.0",
+  "organizations": [
+    {
+      "id": "bmac",
+      "name": "Black Music Action Coalition (BMAC)",
+      "website": "https://www.bmacoalition.org",
+      "region": "US",
+      "categories": [
+        "anti-racism",
+        "racial-equity",
+        "policy-advocacy"
+      ],
+      "focus_areas": [
+        "Systemic Racism",
+        "Label Accountability",
+        "Executive Inclusion"
+      ],
+      "action_types": [
+        "advocacy",
+        "donations",
+        "reports"
+      ],
+      "description": "An advocacy group formed to address systemic racism within the music business, hold major labels accountable, and drive policy change."
+    },
+    {
+      "id": "blim",
+      "name": "Black Lives in Music (BLIM)",
+      "website": "https://blim.org.uk",
+      "region": "UK",
+      "categories": [
+        "anti-racism",
+        "racial-equity"
+      ],
+      "focus_areas": [
+        "Black & Ethnically Diverse Representation",
+        "Mentorship",
+        "Industry Research"
+      ],
+      "action_types": [
+        "advocacy",
+        "mentorship",
+        "donations"
+      ],
+      "description": "Focuses on equality for Black, Asian, and ethnically diverse musicians and professionals through research, mentorship, and industry reform."
+    },
+    {
+      "id": "power-up",
+      "name": "POWER UP",
+      "website": "https://prsfoundation.com/powerup",
+      "region": "UK",
+      "categories": [
+        "anti-racism",
+        "racial-equity"
+      ],
+      "focus_areas": [
+        "Black Music Creators",
+        "Industry Professionals",
+        "Grant Funding"
+      ],
+      "action_types": [
+        "funding",
+        "mentorship",
+        "advocacy"
+      ],
+      "description": "Initiative co-founded by the PRS Foundation to support Black music creators and industry professionals while tackling anti-Black racism."
+    },
+    {
+      "id": "decolonise-fest",
+      "name": "Decolonise Fest",
+      "website": "https://decolonisefest.co.uk",
+      "region": "UK",
+      "categories": [
+        "anti-racism",
+        "racial-equity",
+        "alternative-scenes"
+      ],
+      "focus_areas": [
+        "People of Color in Punk",
+        "Alternative Music",
+        "DIY Live Music"
+      ],
+      "action_types": [
+        "events",
+        "community",
+        "volunteer"
+      ],
+      "description": "A volunteer-run festival and collective highlighting music made by People of Color in punk and alternative scenes."
+    },
+    {
+      "id": "keychange",
+      "name": "Keychange",
+      "website": "https://www.keychange.eu",
+      "region": "International",
+      "categories": [
+        "gender-equality",
+        "anti-sexism"
+      ],
+      "focus_areas": [
+        "Festival Rosters",
+        "50/50 Gender Balance",
+        "Executive Representation"
+      ],
+      "action_types": [
+        "pledge",
+        "advocacy",
+        "events"
+      ],
+      "description": "Global movement working toward 50/50 gender balance in music festival lineups, conferences, and rosters."
+    },
+    {
+      "id": "women-in-music",
+      "name": "Women in Music",
+      "website": "https://www.womeninmusic.org",
+      "region": "International",
+      "categories": [
+        "gender-equality",
+        "anti-sexism"
+      ],
+      "focus_areas": [
+        "Career Advancement",
+        "Networking",
+        "Education"
+      ],
+      "action_types": [
+        "membership",
+        "education",
+        "mentorship"
+      ],
+      "description": "One of the oldest and largest non-profits dedicated to educating, empowering, and advancing women in the musical arts."
+    },
+    {
+      "id": "femme-house",
+      "name": "Femme House",
+      "website": "https://www.thisisfemmehouse.com",
+      "region": "Global",
+      "categories": [
+        "gender-equality",
+        "lgbtq-plus",
+        "music-production"
+      ],
+      "focus_areas": [
+        "Women & Gender-Expansive Creators",
+        "DJing",
+        "Audio Production"
+      ],
+      "action_types": [
+        "education",
+        "workshops",
+        "donations"
+      ],
+      "description": "Fosters equitable opportunities for women and gender-expansive individuals in music creation, DJing, and production."
+    },
+    {
+      "id": "beats-by-girlz",
+      "name": "Beats By Girlz",
+      "website": "https://www.beatsbygirlz.org",
+      "region": "Global",
+      "categories": [
+        "gender-equality",
+        "lgbtq-plus",
+        "youth-education"
+      ],
+      "focus_areas": [
+        "Youth Empowerment",
+        "Music Tech",
+        "Audio Production"
+      ],
+      "action_types": [
+        "education",
+        "chapters",
+        "donations"
+      ],
+      "description": "Empowers young women and gender-expansive youth through music technology and production education."
+    },
+    {
+      "id": "gender-amplified",
+      "name": "Gender Amplified",
+      "website": "https://genderamplified.org",
+      "region": "US",
+      "categories": [
+        "gender-equality",
+        "lgbtq-plus",
+        "music-production"
+      ],
+      "focus_areas": [
+        "Women & Non-Binary Producers",
+        "Audio Engineering",
+        "Creative Camps"
+      ],
+      "action_types": [
+        "advocacy",
+        "donations",
+        "workshops"
+      ],
+      "description": "A non-profit dedicated to celebrating and supporting women and non-binary music producers."
+    },
+    {
+      "id": "music-production-for-women",
+      "name": "Music Production for Women (MPW)",
+      "website": "https://musicproductionforwomen.com",
+      "region": "Global",
+      "categories": [
+        "gender-equality",
+        "music-production"
+      ],
+      "focus_areas": [
+        "Audio Engineering Training",
+        "Beginner Workshops",
+        "Community"
+      ],
+      "action_types": [
+        "education",
+        "community"
+      ],
+      "description": "Online platform providing training, community, and support for women entering audio engineering and production."
+    },
+    {
+      "id": "the-ally-coalition",
+      "name": "The Ally Coalition (TAC)",
+      "website": "https://theallycoalition.org",
+      "region": "Global",
+      "categories": [
+        "lgbtq-plus",
+        "trans-inclusion"
+      ],
+      "focus_areas": [
+        "LGBTQ+ Youth",
+        "Grassroots Advocacy",
+        "Tour Activism"
+      ],
+      "action_types": [
+        "donations",
+        "advocacy",
+        "volunteering"
+      ],
+      "description": "Works with artists and the music industry to support LGBTQ+ youth and grass-roots advocacy."
+    },
+    {
+      "id": "queer-music-agency",
+      "name": "Queer Music Agency",
+      "website": "https://queermusicagency.com",
+      "region": "Europe",
+      "categories": [
+        "lgbtq-plus",
+        "trans-inclusion"
+      ],
+      "focus_areas": [
+        "LGBTQ+ Booking & Representation",
+        "Safer Venue Spaces",
+        "Visibility"
+      ],
+      "action_types": [
+        "booking",
+        "advocacy"
+      ],
+      "description": "An agency and collective focused specifically on elevating LGBTQ+ artists, representation, and safer venue spaces."
+    },
+    {
+      "id": "calling-all-crows",
+      "name": "Calling All Crows",
+      "website": "https://www.callingallcrows.org",
+      "region": "Global",
+      "categories": [
+        "safer-spaces",
+        "anti-harassment"
+      ],
+      "focus_areas": [
+        "Live Venue Safety",
+        "Bystander Intervention",
+        "Sexual Assault Prevention"
+      ],
+      "action_types": [
+        "training",
+        "donations",
+        "volunteering"
+      ],
+      "description": "Mobilizes music fans and artists to combat sexual harassment and assault at live shows through their Here For The Music campaign."
+    },
+    {
+      "id": "girls-against",
+      "name": "Girls Against",
+      "website": "https://www.girlsagainst.co.uk",
+      "region": "UK",
+      "categories": [
+        "safer-spaces",
+        "anti-harassment",
+        "anti-sexism"
+      ],
+      "focus_areas": [
+        "Gig Safety",
+        "Gig Misogyny Awareness",
+        "Venue Accountability"
+      ],
+      "action_types": [
+        "advocacy",
+        "volunteering",
+        "awareness"
+      ],
+      "description": "A volunteer organization standing up against sexual assault and misogyny at live music venues."
+    },
+    {
+      "id": "noise-for-now",
+      "name": "NOISE FOR NOW",
+      "website": "https://noisefornow.org",
+      "region": "US",
+      "categories": [
+        "reproductive-rights",
+        "healthcare"
+      ],
+      "focus_areas": [
+        "Reproductive Justice",
+        "Healthcare Access",
+        "Artist Fundraising"
+      ],
+      "action_types": [
+        "donations",
+        "campaigns"
+      ],
+      "description": "Connects musicians with local reproductive justice and healthcare organizations to fund and support healthcare access."
+    },
+    {
+      "id": "attitude-is-everything",
+      "name": "Attitude is Everything",
+      "website": "https://attitudeiseverything.org.uk",
+      "region": "Europe",
+      "categories": [
+        "accessibility",
+        "disability-rights"
+      ],
+      "focus_areas": [
+        "Deaf & Disabled Live Access",
+        "Accessible Venues",
+        "Artist Support"
+      ],
+      "action_types": [
+        "charter",
+        "training",
+        "donations"
+      ],
+      "description": "Works with audiences, artists, and the live music industry to improve accessibility for Deaf and disabled people."
+    },
+    {
+      "id": "rampd",
+      "name": "RAMPD (Recording Artists and Music Professionals with Disabilities)",
+      "website": "https://www.rampd.org",
+      "region": "Global",
+      "categories": [
+        "accessibility",
+        "disability-rights"
+      ],
+      "focus_areas": [
+        "Neurodiversity & Disability Advocacy",
+        "Industry Standards",
+        "Directory"
+      ],
+      "action_types": [
+        "membership",
+        "advocacy",
+        "consulting"
+      ],
+      "description": "Founded by disabled music creators to build inclusion, advocacy, and accessibility standards across the industry."
+    }
+  ]
+}
