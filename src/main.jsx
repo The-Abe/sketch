@@ -80,13 +80,23 @@ function App() {
         const artist = targets[cursor++]
         if (!artist || runRef.current !== run) return
         patch(artist.name, { checking: true })
-        let info = { blackMetal: null, threads: [] }
+        let info = { blackMetal: null }
         try {
           const response = await fetch(`/api/band?name=${encodeURIComponent(artist.name)}`)
           if (response.ok) info = await response.json()
         } catch { /* ignore */ }
         if (runRef.current !== run) return
         patch(artist.name, { checking: false, genre: info })
+        if (info.blackMetal === true) {
+          patch(artist.name, { searching: true })
+          let threads = { threads: [], redditFailed: false }
+          try {
+            const response = await fetch(`/api/band/threads?name=${encodeURIComponent(artist.name)}`)
+            if (response.ok) threads = await response.json()
+          } catch { /* ignore */ }
+          if (runRef.current !== run) return
+          patch(artist.name, { searching: false, genre: { ...info, threads: threads.threads, redditFailed: threads.redditFailed } })
+        }
       }
     }
     await Promise.all([worker(), worker(), worker(), worker()])
@@ -121,7 +131,7 @@ function App() {
           </div>
           <div className="result-column">
             <div className="column-label"><span className="status-mark clear"><Minus size={13} /></span> NOT LISTED <b>{unmatched.length}</b></div>
-            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && (artist.genre.redditFailed ? <div className="threads-empty">Reddit search is rate-limited - try again in a minute.</div> : <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>)}</div>}</article>)}
+            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.searching && <div className="band-status">Searching Reddit…</div>}{!artist.searching && artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{!artist.searching && artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && (artist.genre.redditFailed ? <div className="threads-empty">Reddit search is rate-limited - try again in a minute.</div> : <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>)}</div>}</article>)}
             {unmatched.length === 0 && <p className="column-empty">Every artist is on the index.</p>}
           </div>
         </div>

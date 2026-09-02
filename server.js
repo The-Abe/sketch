@@ -177,7 +177,7 @@ function scheduleReddit(task) {
 }
 
 async function fetchRedditFeed(subreddit, query) {
-  const url = `https://www.reddit.com/r/${subreddit}/search.rss?q=${encodeURIComponent(query)}&restrict_sr=1`
+  const url = `https://www.reddit.com/r/${subreddit}/search.rss?q=${encodeURIComponent('"' + query + '"')}&restrict_sr=1`
   return scheduleReddit(async () => {
     const xml = await curlText(url, 'application/atom+xml,application/xml,text/xml')
     if (!xml) return null
@@ -215,33 +215,34 @@ function storeRedditResult(entry, { threads, failed }) {
   if (threads.length > 0 || !failed) entry.searchedAt = Date.now()
 }
 
-async function lookupBand(name) {
+async function ensureBandGenre(name) {
   const genres = await loadBandGenres()
   const key = normalizeBand(name)
   const cached = genres.get(key)
-  if (cached) {
-    if (!cached.blackMetal) return { name, blackMetal: false, threads: [] }
-    const fresh = cached.searchedAt && Date.now() - cached.searchedAt < REDDIT_CACHE_TTL && Array.isArray(cached.threads)
-    if (fresh) return { name, blackMetal: true, threads: cached.threads }
-    const result = await searchRedditThreads(name)
-    storeRedditResult(cached, result)
-    persistBandGenres()
-    return { name, blackMetal: true, threads: result.threads, redditFailed: result.failed }
-  }
+  if (cached) return { key, entry: cached, blackMetal: cached.blackMetal, genre: null }
   const genre = await fetchMetalArchivesGenre(name)
-  if (genre == null) return { name, blackMetal: null, threads: [], redditFailed: false }
+  if (genre == null) return { key, entry: null, blackMetal: null, genre: null }
   const blackMetal = isBlackMetal(genre)
   const entry = { name, blackMetal, threads: [], searchedAt: 0 }
-  if (blackMetal) {
-    const result = await searchRedditThreads(name)
-    storeRedditResult(entry, result)
-    genres.set(key, entry)
-    persistBandGenres()
-    return { name, blackMetal, genre, threads: result.threads, redditFailed: result.failed }
-  }
   genres.set(key, entry)
   persistBandGenres()
-  return { name, blackMetal, genre, threads: [], redditFailed: false }
+  return { key, entry, blackMetal, genre }
+}
+
+async function lookupBandGenre(name) {
+  const { blackMetal, genre } = await ensureBandGenre(name)
+  return { name, blackMetal, genre }
+}
+
+async function lookupBandThreads(name) {
+  const { entry, blackMetal } = await ensureBandGenre(name)
+  if (!entry || !blackMetal) return { name, threads: [], redditFailed: false }
+  const fresh = entry.searchedAt && Date.now() - entry.searchedAt < REDDIT_CACHE_TTL && Array.isArray(entry.threads)
+  if (fresh) return { name, threads: entry.threads }
+  const result = await searchRedditThreads(name)
+  storeRedditResult(entry, result)
+  persistBandGenres()
+  return { name, threads: result.threads, redditFailed: result.failed }
 }
 
 async function scrapePlaylist(id) {
@@ -282,9 +283,18 @@ async function handleApi(req, res, url) {
     const name = (url.searchParams.get('name') || '').trim()
     if (!name) return json(res, 400, { error: 'Missing band name.' })
     try {
-      return json(res, 200, await lookupBand(name))
+      return json(res, 200, await lookupBandGenre(name))
     } catch {
       return json(res, 502, { error: 'Could not look up the band.' })
+    }
+  }
+  if (url.pathname === '/api/band/threads') {
+    const name = (url.searchParams.get('name') || '').trim()
+    if (!name) return json(res, 400, { error: 'Missing band name.' })
+    try {
+      return json(res, 200, await lookupBandThreads(name))
+    } catch {
+      return json(res, 502, { error: 'Could not search Reddit for the band.' })
     }
   }
   return json(res, 404, { error: 'Not found.' })
