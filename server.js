@@ -210,6 +210,11 @@ async function searchRedditThreads(name) {
 
 const REDDIT_CACHE_TTL = 30 * 24 * 60 * 60 * 1000
 
+function storeRedditResult(entry, { threads, failed }) {
+  entry.threads = threads
+  if (threads.length > 0 || !failed) entry.searchedAt = Date.now()
+}
+
 async function lookupBand(name) {
   const genres = await loadBandGenres()
   const key = normalizeBand(name)
@@ -218,23 +223,21 @@ async function lookupBand(name) {
     if (!cached.blackMetal) return { name, blackMetal: false, threads: [] }
     const fresh = cached.searchedAt && Date.now() - cached.searchedAt < REDDIT_CACHE_TTL && Array.isArray(cached.threads)
     if (fresh) return { name, blackMetal: true, threads: cached.threads }
-    const { threads, failed } = await searchRedditThreads(name)
-    cached.threads = threads
-    if (!failed) cached.searchedAt = Date.now()
+    const result = await searchRedditThreads(name)
+    storeRedditResult(cached, result)
     persistBandGenres()
-    return { name, blackMetal: true, threads, redditFailed: failed }
+    return { name, blackMetal: true, threads: result.threads, redditFailed: result.failed }
   }
   const genre = await fetchMetalArchivesGenre(name)
   if (genre == null) return { name, blackMetal: null, threads: [], redditFailed: false }
   const blackMetal = isBlackMetal(genre)
   const entry = { name, blackMetal, threads: [], searchedAt: 0 }
   if (blackMetal) {
-    const { threads, failed } = await searchRedditThreads(name)
-    entry.threads = threads
-    if (!failed) entry.searchedAt = Date.now()
+    const result = await searchRedditThreads(name)
+    storeRedditResult(entry, result)
     genres.set(key, entry)
     persistBandGenres()
-    return { name, blackMetal, genre, threads, redditFailed: failed }
+    return { name, blackMetal, genre, threads: result.threads, redditFailed: result.failed }
   }
   genres.set(key, entry)
   persistBandGenres()
