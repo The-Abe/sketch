@@ -125,7 +125,10 @@ async function loadBandGenres() {
   if (bandGenres) return bandGenres
   try {
     const obj = JSON.parse(await readFile(BAND_GENRES_FILE, 'utf8'))
-    bandGenres = new Map(Object.entries(obj).map(([name, blackMetal]) => [normalizeBand(name), { name, blackMetal }]))
+    bandGenres = new Map(Object.entries(obj).map(([name, value]) => {
+      const rec = typeof value === 'object' && value !== null ? value : { blackMetal: value }
+      return [normalizeBand(name), { name, blackMetal: rec.blackMetal, threads: Array.isArray(rec.threads) ? rec.threads : [], searchedAt: rec.searchedAt || 0 }]
+    }))
   } catch {
     bandGenres = new Map()
   }
@@ -133,7 +136,15 @@ async function loadBandGenres() {
 }
 
 function persistBandGenres() {
-  const obj = Object.fromEntries([...bandGenres.values()].map((e) => [e.name, e.blackMetal]))
+  const obj = {}
+  for (const e of bandGenres.values()) {
+    const rec = { blackMetal: e.blackMetal }
+    if (e.blackMetal) {
+      rec.threads = e.threads || []
+      rec.searchedAt = e.searchedAt || 0
+    }
+    obj[e.name] = rec
+  }
   bandGenresWrite = bandGenresWrite.then(() => writeFile(BAND_GENRES_FILE, JSON.stringify(obj, null, 2) + '\n')).catch(() => {})
 }
 
@@ -149,51 +160,85 @@ async function fetchMetalArchivesGenre(name) {
 
 const isBlackMetal = (genre) => /black/i.test(genre)
 
-async function fetchRedditFeed(subreddit, query) {
-  const url = `https://www.reddit.com/r/${subreddit}/search.rss?q=${encodeURIComponent(query)}&restrict_sr=1`
-  const xml = await curlText(url, 'application/atom+xml,application/xml,text/xml')
-  if (!xml) return null
-  const out = []
-  for (const entry of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
-    const body = entry[1]
-    const link = body.match(/<link[^>]*href="([^"]+)"/)
-    const title = body.match(/<title>([\s\S]*?)<\/title>/)
-    const clean = title ? decodeEntities(stripTags(title[1])).replace(/\s*:\s*r\/\w+\s*$/, '').trim() : ''
-    if (link) out.push({ subreddit, title: clean, url: link[1] })
-  }
-  return out
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const REDDIT_INTERVAL = 2000
+let lastRedditAt = 0
+let redditChain = Promise.resolve()
+function scheduleReddit(task) {
+  const next = redditChain.then(async () => {
+    const wait = lastRedditAt + REDDIT_INTERVAL - Date.now()
+    if (wait > 0) await sleep(wait)
+    lastRedditAt = Date.now()
+    return task()
+  })
+  redditChain = next.catch(() => {})
+  return next
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+async function fetchRedditFeed(subreddit, query) {
+  const url = `https://www.reddit.com/r/${subreddit}/search.rss?q=${encodeURIComponent(query)}&restrict_sr=1`
+  return scheduleReddit(async () => {
+    const xml = await curlText(url, 'application/atom+xml,application/xml,text/xml')
+    if (!xml) return null
+    const out = []
+    for (const entry of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+      const body = entry[1]
+      const link = body.match(/<link[^>]*href="([^"]+)"/)
+      const title = body.match(/<title>([\s\S]*?)<\/title>/)
+      const clean = title ? decodeEntities(stripTags(title[1])).replace(/\s*:\s*r\/\w+\s*$/, '').trim() : ''
+      if (link) out.push({ subreddit, title: clean, url: link[1] })
+    }
+    return out
+  })
+}
 
 async function searchRedditThreads(name) {
   const threads = []
+  let failed = false
   for (const subreddit of ['isitsketch', 'rabm']) {
     let got = null
     for (let attempt = 0; attempt < 3 && got === null; attempt++) {
       got = await fetchRedditFeed(subreddit, name)
-      if (got === null) await sleep(800 * (attempt + 1))
+      if (got === null && attempt < 2) await sleep(4000 * (attempt + 1))
     }
-    threads.push(...(got || []))
+    if (got === null) failed = true
+    else threads.push(...got)
   }
-  return threads
+  return { threads, failed }
 }
+
+const REDDIT_CACHE_TTL = 30 * 24 * 60 * 60 * 1000
 
 async function lookupBand(name) {
   const genres = await loadBandGenres()
   const key = normalizeBand(name)
   const cached = genres.get(key)
   if (cached) {
-    const threads = cached.blackMetal ? await searchRedditThreads(name) : []
-    return { name, blackMetal: cached.blackMetal, threads }
+    if (!cached.blackMetal) return { name, blackMetal: false, threads: [] }
+    const fresh = cached.searchedAt && Date.now() - cached.searchedAt < REDDIT_CACHE_TTL && Array.isArray(cached.threads)
+    if (fresh) return { name, blackMetal: true, threads: cached.threads }
+    const { threads, failed } = await searchRedditThreads(name)
+    cached.threads = threads
+    if (!failed) cached.searchedAt = Date.now()
+    persistBandGenres()
+    return { name, blackMetal: true, threads, redditFailed: failed }
   }
   const genre = await fetchMetalArchivesGenre(name)
-  if (genre == null) return { name, blackMetal: null, threads: [] }
+  if (genre == null) return { name, blackMetal: null, threads: [], redditFailed: false }
   const blackMetal = isBlackMetal(genre)
-  genres.set(key, { name, blackMetal })
+  const entry = { name, blackMetal, threads: [], searchedAt: 0 }
+  if (blackMetal) {
+    const { threads, failed } = await searchRedditThreads(name)
+    entry.threads = threads
+    if (!failed) entry.searchedAt = Date.now()
+    genres.set(key, entry)
+    persistBandGenres()
+    return { name, blackMetal, genre, threads, redditFailed: failed }
+  }
+  genres.set(key, entry)
   persistBandGenres()
-  const threads = blackMetal ? await searchRedditThreads(name) : []
-  return { name, blackMetal, genre, threads }
+  return { name, blackMetal, genre, threads: [], redditFailed: false }
 }
 
 async function scrapePlaylist(id) {

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AlertTriangle, ArrowRight, ChevronDown, ExternalLink, LoaderCircle, Minus, Search } from 'lucide-react'
 import './styles.css'
+import organizations from '../music_industry_equity_organizations.json'
 
 const SHEET_VIEW_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMafFBtiGF_ZWIlL24B18K-tGk9VMsWuzPrW_ozGfwsvBldruVVld7kSVjd2kRaL45yGsvT61-iwL-/pubhtml'
 const SITE_URL = 'https://blackmetalsketchbook.com/'
@@ -120,13 +121,26 @@ function App() {
           </div>
           <div className="result-column">
             <div className="column-label"><span className="status-mark clear"><Minus size={13} /></span> NOT LISTED <b>{unmatched.length}</b></div>
-            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>}</div>}</article>)}
+            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && (artist.genre.redditFailed ? <div className="threads-empty">Reddit search is rate-limited — try again in a minute.</div> : <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>)}</div>}</article>)}
             {unmatched.length === 0 && <p className="column-empty">Every artist is on the index.</p>}
           </div>
         </div>
         <p className="disclaimer">The index is a research sketchbook, not a definitive verdict - read the full notes on <a href={SITE_URL} target="_blank" rel="noreferrer">blackmetalsketchbook.com</a>. An artist not listed simply means they have not been documented yet.</p>
       </section>}
       {!data && !loading && !error && <section className="empty-state"><p>Paste a playlist above to check it against the index.</p></section>}
+      <section className="orgs">
+        <div className="eyebrow">RESOURCES · EQUITY IN MUSIC</div>
+        <h2 className="orgs-title">Organizations fighting for equity in music</h2>
+        <div className="orgs-grid">
+          {organizations.organizations.map((org) => (
+            <article className="org-card" key={org.id}>
+              <a className="org-name" href={org.website} target="_blank" rel="noreferrer noopener">{org.name} <ExternalLink size={13} /></a>
+              <div className="org-region">{org.region}</div>
+              <p className="org-desc">{org.description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
     </main>
     <footer><span>Index maintained by <a href={SITE_URL} target="_blank" rel="noreferrer">blackmetalsketchbook.com</a></span><span>submissions · bmsketchbook@gmail.com</span></footer>
   </div>
