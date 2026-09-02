@@ -10,7 +10,7 @@ const SITE_URL = 'https://blackmetalsketchbook.com/'
 const RATINGS = {
   black: { label: 'Fascist / NSBM', order: 0 },
   red: { label: 'Right-wing associations', order: 1 },
-  orange: { label: 'Controversy — use discretion', order: 2 },
+  orange: { label: 'Controversy - use discretion', order: 2 },
   yellow: { label: 'Left-wing associations', order: 3 },
   green: { label: 'Anti-fascist', order: 4 },
 }
@@ -100,7 +100,7 @@ function App() {
       <section className="hero">
         <div className="eyebrow"><AlertTriangle size={13} /> ARTIST INDEX · PLAYLIST CHECK</div>
         <h1>Does your playlist<br />harbour <em>fascists?</em></h1>
-        <p className="lede">Paste a public Spotify playlist. Every artist is checked against the <a href={SITE_URL} target="_blank" rel="noreferrer">Black Metal Sketchbook</a> index — a living record of NSBM, fascist and anti-fascist associations in black metal.</p>
+        <p className="lede">Paste a public Spotify playlist. Every artist is checked against the <a href={SITE_URL} target="_blank" rel="noreferrer">Black Metal Sketchbook</a> index - a living record of NSBM, fascist and anti-fascist associations in black metal. If the band is not in the list, we'll check if it's a black metal band and pull Reddit threads for you to explore.</p>
         <form className="search-form" onSubmit={submit}>
           <div className="input-wrap"><Search size={20} /><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://open.spotify.com/playlist/..." aria-label="Spotify playlist URL" /></div>
           <button disabled={loading || !url.trim()}>{loading ? <LoaderCircle className="spin" size={18} /> : <ArrowRight size={18} />} {loading ? 'Checking' : 'Check playlist'}</button>
@@ -121,13 +121,13 @@ function App() {
           </div>
           <div className="result-column">
             <div className="column-label"><span className="status-mark clear"><Minus size={13} /></span> NOT LISTED <b>{unmatched.length}</b></div>
-            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && (artist.genre.redditFailed ? <div className="threads-empty">Reddit search is rate-limited — try again in a minute.</div> : <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>)}</div>}</article>)}
+            {unmatched.map((artist) => <article className="artist-card clear" key={artist.name}><div className="artist-name">{artist.name}</div>{artist.checking && <div className="band-status">Checking genre…</div>}{!artist.checking && artist.genre && <div className="band-info">{artist.genre.blackMetal === true && <span className="tag genre-black">Black metal</span>}{artist.genre.blackMetal === false && <span className="tag muted">Not black metal</span>}{artist.genre.blackMetal === null && <span className="tag muted">Genre unknown</span>}{artist.genre.threads?.length > 0 && <ul className="threads">{artist.genre.threads.map((thread, i) => <li key={i}><a href={thread.url} target="_blank" rel="noreferrer noopener">{thread.title || thread.url}</a><span className="thread-sub">r/{thread.subreddit}</span></li>)}</ul>}{artist.genre.blackMetal === true && artist.genre.threads?.length === 0 && (artist.genre.redditFailed ? <div className="threads-empty">Reddit search is rate-limited - try again in a minute.</div> : <div className="threads-empty">No threads found on /r/isitsketch or /r/rabm.</div>)}</div>}</article>)}
             {unmatched.length === 0 && <p className="column-empty">Every artist is on the index.</p>}
           </div>
         </div>
         <p className="disclaimer">The index is a research sketchbook, not a definitive verdict - read the full notes on <a href={SITE_URL} target="_blank" rel="noreferrer">blackmetalsketchbook.com</a>. An artist not listed simply means they have not been documented yet.</p>
       </section>}
-      {!data && !loading && !error && <section className="empty-state"><p>Paste a playlist above to check it against the index.</p></section>}
+      {!data && !loading && !error && <section className="empty-state"><p>Paste a playlist above to check it against the index and Reddit.</p></section>}
       <section className="orgs">
         <div className="eyebrow">RESOURCES · EQUITY IN MUSIC</div>
         <h2 className="orgs-title">Organizations fighting for equity in music</h2>
