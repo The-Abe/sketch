@@ -102,7 +102,7 @@ function App() {
             {unmatched.length === 0 && <p className="column-empty">Every artist is on the index.</p>}
           </div>
         </div>
-        <p className="disclaimer">The index is a research sketchbook, not a definitive verdict — read the full notes on <a href={SITE_URL} target="_blank" rel="noreferrer">blackmetalsketchbook.com</a>. An artist not listed simply means they have not been documented yet.</p>
+        <p className="disclaimer">The index is a research sketchbook, not a definitive verdict - read the full notes on <a href={SITE_URL} target="_blank" rel="noreferrer">blackmetalsketchbook.com</a>. An artist not listed simply means they have not been documented yet.</p>
       </section>}
       {!data && !loading && !error && <section className="empty-state"><p>Paste a playlist above to check it against the index.</p></section>}
     </main>
